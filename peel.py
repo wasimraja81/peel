@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""Peel compact sources from FITS images using iterative Fourier inpainting.
+
+This module detects compact sources, builds a mask, and fills masked pixels
+through iterative band-limited interpolation while preserving measured pixels.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +26,19 @@ except ImportError:
 
 
 def robust_stats(values: np.ndarray) -> tuple[float, float]:
+    """Return robust central value and scale estimate for an array.
+
+    Parameters
+    ----------
+    values : np.ndarray
+        Input image/data array that may contain NaNs or infs.
+
+    Returns
+    -------
+    tuple[float, float]
+        `(median, sigma)` where sigma is MAD-based (`1.4826 * MAD`) and falls
+        back to standard deviation if needed.
+    """
     finite = np.isfinite(values)
     if not np.any(finite):
         return 0.0, 1.0
@@ -39,6 +57,19 @@ def robust_stats(values: np.ndarray) -> tuple[float, float]:
 
 
 def local_maxima_3x3(image: np.ndarray) -> np.ndarray:
+    """Find local maxima in a 2D image using a 3x3 neighborhood.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        2D image used for peak detection.
+
+    Returns
+    -------
+    np.ndarray
+        Boolean mask where `True` indicates a pixel greater than or equal to
+        all 8 neighbors.
+    """
     padded = np.pad(image, 1, mode="edge")
     center = padded[1:-1, 1:-1]
 
@@ -54,6 +85,7 @@ def local_maxima_3x3(image: np.ndarray) -> np.ndarray:
 
 
 def build_disk_offsets(radius: int) -> list[tuple[int, int]]:
+    """Build `(dy, dx)` offsets inside a filled disk of given radius."""
     offsets: list[tuple[int, int]] = []
     for dy in range(-radius, radius + 1):
         for dx in range(-radius, radius + 1):
@@ -63,6 +95,20 @@ def build_disk_offsets(radius: int) -> list[tuple[int, int]]:
 
 
 def expand_peaks_to_psf_mask(peaks: np.ndarray, radius: int) -> np.ndarray:
+    """Expand seed pixels into a circular (disk) mask.
+
+    Parameters
+    ----------
+    peaks : np.ndarray
+        Boolean seed mask.
+    radius : int
+        Radius in pixels for circular expansion.
+
+    Returns
+    -------
+    np.ndarray
+        Expanded boolean mask.
+    """
     if radius <= 0:
         return peaks.copy()
 
@@ -86,6 +132,20 @@ def expand_peaks_to_psf_mask(peaks: np.ndarray, radius: int) -> np.ndarray:
 
 
 def expand_peaks_to_box_mask(peaks: np.ndarray, box_size: int) -> np.ndarray:
+    """Expand seed pixels into a square mask of size `box_size`.
+
+    Parameters
+    ----------
+    peaks : np.ndarray
+        Boolean seed mask.
+    box_size : int
+        Side length in pixels for square expansion.
+
+    Returns
+    -------
+    np.ndarray
+        Expanded boolean mask.
+    """
     if box_size <= 1:
         return peaks.copy()
 
@@ -123,6 +183,39 @@ def detect_point_source_mask(
     detect_smooth_sigma: float,
     seed_with_bright: bool,
 ) -> np.ndarray:
+    """Detect compact sources and return mask pixels to inpaint.
+
+    Detection supports `global`, `local`, and `hybrid` modes. The resulting
+    seed map is expanded either with circular PSF radius or square box size.
+
+    Parameters
+    ----------
+    image : np.ndarray
+        Input 2D image.
+    sigma_threshold : float
+        Local/global detection threshold in sigma units.
+    psf_radius_px : int
+        Circular expansion radius in pixels.
+    box_size_px : int
+        Square expansion size in pixels; if >1, overrides radius expansion.
+    detection_mode : str
+        One of `global`, `local`, or `hybrid`.
+    global_sigma_threshold : float
+        Global-threshold sigma used in hybrid mode.
+    local_bg_sigma : float
+        Gaussian sigma for local background model.
+    local_noise_sigma : float
+        Gaussian sigma for local noise model.
+    detect_smooth_sigma : float
+        Optional pre-detection smoothing sigma.
+    seed_with_bright : bool
+        If true, use all significant bright pixels as seeds; otherwise peaks.
+
+    Returns
+    -------
+    np.ndarray
+        Boolean source mask restricted to finite input pixels.
+    """
     finite = np.isfinite(image)
     med, sigma = robust_stats(image)
 
@@ -189,6 +282,22 @@ def build_lowpass_filter(
     cutoff_cyc_per_pix: float,
     mode: str,
 ) -> np.ndarray:
+    """Build a 2D frequency-domain low-pass filter.
+
+    Parameters
+    ----------
+    shape : tuple[int, int]
+        Image shape `(ny, nx)`.
+    cutoff_cyc_per_pix : float
+        Cutoff scale in cycles per pixel.
+    mode : str
+        `hard` for binary cutoff, `gaussian` for smooth taper.
+
+    Returns
+    -------
+    np.ndarray
+        2D filter array aligned with `fftshift`-centered spectra.
+    """
     h, w = shape
     fy = np.fft.fftshift(np.fft.fftfreq(h))
     fx = np.fft.fftshift(np.fft.fftfreq(w))
@@ -211,6 +320,33 @@ def bandlimited_inpaint(
     iterations: int,
     zero_each_iteration: bool,
 ) -> np.ndarray:
+    """Fill masked pixels by iterative band-limited Fourier interpolation.
+
+    The method enforces two constraints each iteration:
+    1) spectral smoothness via low-pass filtering in Fourier space,
+    2) exact preservation of measured (unmasked) finite pixels.
+
+    Parameters
+    ----------
+    original : np.ndarray
+        Input image, potentially with NaNs.
+    mask_to_fill : np.ndarray
+        Boolean mask of pixels to inpaint.
+    cutoff_cyc_per_pix : float
+        Low-pass cutoff/scale in cycles per pixel.
+    lowpass_mode : str
+        `hard` or `gaussian` low-pass behavior.
+    iterations : int
+        Number of FFT/IFFT refinement iterations.
+    zero_each_iteration : bool
+        If true, reset masked pixels to zero every iteration; otherwise carry
+        forward previous interpolated values.
+
+    Returns
+    -------
+    np.ndarray
+        Inpainted image estimate.
+    """
     finite = np.isfinite(original)
     med, _ = robust_stats(original)
 
@@ -243,6 +379,20 @@ def bandlimited_inpaint(
 
 
 def load_fits_2d(path: Path, hdu_index: int) -> tuple[np.ndarray, fits.Header]:
+    """Load and validate a 2D FITS image from the selected HDU.
+
+    Parameters
+    ----------
+    path : Path
+        Path to FITS file.
+    hdu_index : int
+        HDU index to read.
+
+    Returns
+    -------
+    tuple[np.ndarray, fits.Header]
+        2D float64 image array and original HDU header.
+    """
     with fits.open(path) as hdul:
         data = hdul[hdu_index].data
         header = hdul[hdu_index].header
@@ -259,11 +409,19 @@ def load_fits_2d(path: Path, hdu_index: int) -> tuple[np.ndarray, fits.Header]:
 
 
 def save_fits(path: Path, data: np.ndarray, header: fits.Header | None = None) -> None:
+    """Write array data to a FITS file, overwriting if it exists."""
     hdu = fits.PrimaryHDU(data=data, header=header)
     hdu.writeto(path, overwrite=True)
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse and validate command-line arguments.
+
+    Returns
+    -------
+    argparse.Namespace
+        Parsed, validated runtime options for source detection and inpainting.
+    """
     parser = argparse.ArgumentParser(
         description="Detect point sources, mask them, and fill via iterative band-limited Fourier interpolation."
     )
@@ -403,6 +561,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Run CLI workflow: load image, detect mask, inpaint, and write outputs."""
     args = parse_args()
 
     image, header = load_fits_2d(args.input_fits, args.hdu)
