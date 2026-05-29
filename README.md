@@ -170,7 +170,7 @@ On each iteration, masked pixels converge to band-limited values consistent with
 After generating an inpainted image, use the included visualization tool to create publication-ready comparison PNGs:
 
 ```bash
-python tools/generate_comparison_pngs.py original.fits inpainted.fits [output_prefix]
+python tools/generate_comparison_diagnostics.py original.fits inpainted.fits [output_prefix]
 ```
 
 This generates:

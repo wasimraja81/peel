@@ -1,13 +1,13 @@
 # Visualization Tools
 
-## `generate_comparison_pngs.py`
+## `generate_comparison_diagnostics.py`
 
 Generate publication-ready comparison PNG visualizations for FITS inpainting results.
 
 ### Usage
 
 ```bash
-python tools/generate_comparison_pngs.py original.fits inpainted.fits [output_prefix]
+python tools/generate_comparison_diagnostics.py original.fits inpainted.fits [output_prefix]
 ```
 
 ### Arguments
@@ -43,7 +43,7 @@ After running the peel inpainting tool:
 python peel.py myimage.fits --hybrid
 
 # Generate comparison PNGs
-python tools/generate_comparison_pngs.py myimage.fits myimage_inpainted_hybrid.fits myimage_comparison
+python tools/generate_comparison_diagnostics.py myimage.fits myimage_inpainted_hybrid.fits myimage_comparison
 ```
 
 This creates files like:

@@ -37,7 +37,7 @@ echo ""
 
 # Step 2: Generate comparison PNGs
 echo "Step 2: Generating publication-ready PNG comparisons..."
-python tools/generate_comparison_pngs.py \
+python tools/generate_comparison_diagnostics.py \
     "$INPUT" \
     "${BASENAME}_inpainted.fits" \
     -o "$BASENAME"
