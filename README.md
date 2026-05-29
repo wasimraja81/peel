@@ -18,6 +18,18 @@ The core algorithm:
 
 The result is a noise-statistics-consistent inpainting of source-masked regions.
 
+## Example Output
+
+### Comparison Panel
+
+![Peel comparison panel (viridis)](assets/g159_compare_panel_viridis.png)
+
+### Individual Panels
+
+| Original | Peeled (hybrid) | Residual (Orig - Hybrid) |
+|---|---|---|
+| ![Original](assets/g159_original.png) | ![Peeled](assets/g159_hybrid.png) | ![Residual](assets/g159_residual.png) |
+
 ## Installation
 
 ```bash
