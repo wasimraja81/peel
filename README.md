@@ -20,6 +20,12 @@ The result is a noise-statistics-consistent inpainting of source-masked regions.
 
 ## Example Output
 
+### Peeling Animation
+
+![Peeling effect — Original vs Peeled](assets/g159_peel.gif)
+
+*Animating between original and peeled (hybrid) images of G159 at 21 cm, 90 arcmin resolution.*
+
 ### Comparison Panel
 
 ![Peel comparison panel (viridis)](assets/g159_compare_panel_viridis.png)

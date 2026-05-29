@@ -13,12 +13,14 @@ Example:
 """
 
 import argparse
+import io
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 from astropy.visualization import AsinhStretch, ImageNormalize
+from PIL import Image
 
 
 def render_with_white_nans(ax, data: np.ndarray, norm, cmap):
@@ -69,6 +71,45 @@ def render_with_external_mask(ax, data: np.ndarray, norm, cmap, external_mask: n
     return sm
 
 
+def make_gif(
+    orig: np.ndarray,
+    inpainted: np.ndarray,
+    norm,
+    cmap,
+    orig_nan_mask: np.ndarray,
+    out_path: str,
+    fps: float = 1.5,
+    dpi: int = 150,
+) -> None:
+    """Generate an animated GIF alternating between original and peeled frames."""
+    frames = []
+    for data, label in [(orig, "Original"), (inpainted, "Peeled (hybrid)")]:
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.set_xticks([])
+        ax.set_yticks([])
+        nan_mask = orig_nan_mask if label == "Peeled (hybrid)" else ~np.isfinite(data)
+        safe_data = np.where(nan_mask, np.nanmin(data[~nan_mask]) if (~nan_mask).any() else 0, data)
+        rgba = cmap(norm(safe_data))
+        rgba[nan_mask] = [1.0, 1.0, 1.0, 1.0]
+        ax.imshow(rgba, origin="lower", interpolation="nearest")
+        ax.set_title(label, fontsize=18, fontweight="bold", pad=10)
+        fig.tight_layout()
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=dpi)
+        plt.close(fig)
+        buf.seek(0)
+        frames.append(Image.open(buf).convert("RGBA"))
+
+    duration_ms = int(1000 / fps)
+    frames[0].save(
+        out_path,
+        save_all=True,
+        append_images=frames[1:] + [frames[0]],  # bounce back to original
+        loop=0,
+        duration=duration_ms,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate comparison PNG visualizations for FITS inpainting results."
@@ -94,6 +135,18 @@ def main() -> None:
         type=int,
         default=220,
         help="DPI for comparison panel images (default: 220)",
+    )
+    parser.add_argument(
+        "--gif-fps",
+        type=float,
+        default=1.5,
+        help="Frames-per-second for the animated GIF (default: 1.5; 2 frames so 0.5-2 is typical)",
+    )
+    parser.add_argument(
+        "--gif-dpi",
+        type=int,
+        default=120,
+        help="DPI for the animated GIF frames (default: 120)",
     )
 
     args = parser.parse_args()
@@ -230,6 +283,20 @@ def main() -> None:
     print(f"  - {out_prefix}_residual.png")
     print(f"  - {out_prefix}_compare_panel.png")
     print(f"  - {out_prefix}_compare_panel_viridis.png")
+
+    # Animated GIF (viridis)
+    gif_path = f"{out_prefix}_peel.gif"
+    make_gif(
+        orig,
+        inpainted,
+        display_norm,
+        viridis_cmap,
+        orig_nan_mask,
+        gif_path,
+        fps=args.gif_fps,
+        dpi=args.gif_dpi,
+    )
+    print(f"  - {gif_path}")
 
 
 if __name__ == "__main__":
