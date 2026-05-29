@@ -147,6 +147,22 @@ The Gerchberg-Papoulis algorithm enforces two constraints iteratively:
 
 On each iteration, masked pixels converge to band-limited values consistent with the surrounding data.
 
+## Visualization
+
+After generating an inpainted image, use the included visualization tool to create publication-ready comparison PNGs:
+
+```bash
+python tools/generate_comparison_pngs.py original.fits inpainted.fits [output_prefix]
+```
+
+This generates:
+- Single-panel grayscale and viridis views of original, peeled, and residual images
+- 3-panel comparison showing Original, Peeled (hybrid), and Residual with matched color scales
+- All NaN regions rendered as white for clean aesthetics
+- asinh stretch for enhanced dynamic range visibility
+
+See `tools/README.md` for full documentation and examples.
+
 ## Examples
 
 See the `examples/` directory for worked notebooks.
