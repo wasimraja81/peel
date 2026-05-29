@@ -151,6 +151,15 @@ On each iteration, masked pixels converge to band-limited values consistent with
 
 See the `examples/` directory for worked notebooks.
 
+## Demo
+
+Runnable shell demos are in `demo/`:
+
+- `demo/run_hybrid_demo.sh <input.fits>`
+- `demo/compare_iterations.sh <input.fits>`
+
+See `demo/README.md` for quickstart usage.
+
 ## License
 
 MIT
