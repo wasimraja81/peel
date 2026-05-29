@@ -1,0 +1,17 @@
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+.Python
+venv/
+env/
+*.fits
+*.fits.bak
+*.egg
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
