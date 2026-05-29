@@ -6,10 +6,10 @@ This script creates comparison plots showing original, peeled (inpainted), and r
 images with matched color scales and white NaN masking.
 
 Usage:
-    python generate_comparison_pngs.py original.fits inpainted.fits [output_prefix]
+    python generate_comparison_diagnostics.py original.fits inpainted.fits [output_prefix]
 
 Example:
-    python generate_comparison_pngs.py myimage.fits myimage_inpainted.fits myimage
+    python generate_comparison_diagnostics.py myimage.fits myimage_inpainted.fits myimage
 """
 
 import argparse
@@ -104,7 +104,7 @@ def make_gif(
     frames[0].save(
         out_path,
         save_all=True,
-        append_images=frames[1:] + [frames[0]],  # bounce back to original
+        append_images=frames[1:],
         loop=0,
         duration=duration_ms,
     )
@@ -284,13 +284,13 @@ def main() -> None:
     print(f"  - {out_prefix}_compare_panel.png")
     print(f"  - {out_prefix}_compare_panel_viridis.png")
 
-    # Animated GIF (viridis)
+    # Animated GIF (grayscale)
     gif_path = f"{out_prefix}_peel.gif"
     make_gif(
         orig,
         inpainted,
         display_norm,
-        viridis_cmap,
+        gray_cmap,
         orig_nan_mask,
         gif_path,
         fps=args.gif_fps,
