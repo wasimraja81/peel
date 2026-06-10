@@ -24,7 +24,7 @@ The result is a noise-statistics-consistent inpainting of source-masked regions.
 
 ![Peeling effect — Original vs Peeled](assets/g159_peel.gif)
 
-*Animating between original and peeled (hybrid) images of G159 at 21 cm, 90 arcmin resolution.*
+*Animating between original and peeled (hybrid) images of G159 at 21 cm, 90 arcsec resolution.*
 
 ### Comparison Panel
 
