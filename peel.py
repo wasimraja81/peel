@@ -8,6 +8,8 @@ through iterative band-limited interpolation while preserving measured pixels.
 from __future__ import annotations
 
 import argparse
+import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -318,7 +320,6 @@ def bandlimited_inpaint(
     cutoff_cyc_per_pix: float,
     lowpass_mode: str,
     iterations: int,
-    zero_each_iteration: bool,
 ) -> np.ndarray:
     """Fill masked pixels by iterative band-limited Fourier interpolation.
 
@@ -338,9 +339,6 @@ def bandlimited_inpaint(
         `hard` or `gaussian` low-pass behavior.
     iterations : int
         Number of FFT/IFFT refinement iterations.
-    zero_each_iteration : bool
-        If true, reset masked pixels to zero every iteration; otherwise carry
-        forward previous interpolated values.
 
     Returns
     -------
@@ -365,9 +363,6 @@ def bandlimited_inpaint(
 
     for _ in range(iterations):
         work = current.copy()
-        if zero_each_iteration:
-            work[mask_to_fill] = 0.0
-
         spectrum = np.fft.fftshift(np.fft.fft2(work))
         filtered_spectrum = spectrum * lowpass
         interpolated = np.fft.ifft2(np.fft.ifftshift(filtered_spectrum)).real
@@ -478,14 +473,6 @@ def parse_args() -> argparse.Namespace:
         help="Number of Fourier interpolation iterations (default: 8)",
     )
     parser.add_argument(
-        "--zero-each-iteration",
-        action="store_true",
-        help=(
-            "If set, masked pixels are reset to zero before every FFT iteration. "
-            "Default behavior is to carry forward previous IFFT values."
-        ),
-    )
-    parser.add_argument(
         "--include-nans",
         action="store_true",
         help="Also fill original NaN pixels in addition to point-source masks",
@@ -544,6 +531,8 @@ def parse_args() -> argparse.Namespace:
         raise ValueError("--cutoff must be in (0, 0.5]")
     if args.iterations < 1:
         raise ValueError("--iterations must be >= 1")
+    if args.sigma_threshold <= 0:
+        raise ValueError("--sigma-threshold must be > 0")
     if args.psf_radius < 0:
         raise ValueError("--psf-radius must be >= 0")
     if args.box_size < 0:
@@ -588,7 +577,6 @@ def main() -> None:
         cutoff_cyc_per_pix=args.cutoff,
         lowpass_mode=args.lowpass_mode,
         iterations=args.iterations,
-        zero_each_iteration=args.zero_each_iteration,
     )
 
     output_path = args.output_fits
@@ -597,6 +585,15 @@ def main() -> None:
 
     final = image.copy()
     final[mask_to_fill] = inpainted[mask_to_fill]
+
+    # Record provenance in header
+    invocation = " ".join(sys.argv)
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    header.add_history(f"peel.py run on {timestamp}")
+    # Split long invocation across multiple HISTORY cards (72 chars each)
+    chunk = 72
+    for i in range(0, len(invocation), chunk):
+        header.add_history(invocation[i : i + chunk])
 
     save_fits(output_path, final, header)
 

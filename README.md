@@ -120,9 +120,6 @@ python peel.py input.fits \
 - `--iterations` (default: 8)
   - Number of FFT→filter→IFFT cycles. Higher = better convergence, more computation.
 
-- `--zero-each-iteration`
-  - Reset masked pixels to zero before each FFT (default: carry forward previous IFFT values)
-
 ### Special Options
 - `--include-nans`
   - Also fill original NaN pixels in addition to source masks. Use with caution; large NaN regions can contaminate the FFT.
@@ -146,6 +143,67 @@ python peel.py image.fits \
   --seed-with-bright \
   -o output.fits --mask-output mask.fits
 ```
+
+## Quick Tuning Cheatsheet
+
+For maps similar to `g159.c21.90arc.fits` (about 20 arcsec/pixel), a 90 arcsec beam spans ~4.5 pixels. In practice, `--psf-radius 3-5` is usually a good starting range.
+
+### Preset A: Conservative (avoid overmasking)
+
+```bash
+python peel.py image.fits \
+  --detection-mode global \
+  --sigma-threshold 5.5 \
+  --psf-radius 3 \
+  --cutoff 0.12 \
+  --lowpass-mode gaussian \
+  --iterations 12 \
+  -o output_conservative.fits
+```
+
+### Preset B: Balanced (recommended default)
+
+```bash
+python peel.py image.fits \
+  --detection-mode hybrid \
+  --sigma-threshold 4.5 \
+  --global-sigma-threshold 5.0 \
+  --local-bg-sigma 20 \
+  --local-noise-sigma 8 \
+  --detect-smooth-sigma 1.0 \
+  --psf-radius 5 \
+  --cutoff 0.10 \
+  --lowpass-mode gaussian \
+  --iterations 20 \
+  --seed-with-bright \
+  -o output_balanced.fits --mask-output mask_balanced.fits
+```
+
+### Preset C: Aggressive (crowded/faint compact sources)
+
+```bash
+python peel.py image.fits \
+  --detection-mode hybrid \
+  --sigma-threshold 4.0 \
+  --global-sigma-threshold 4.5 \
+  --local-bg-sigma 18 \
+  --local-noise-sigma 7 \
+  --detect-smooth-sigma 1.0 \
+  --psf-radius 5 \
+  --cutoff 0.09 \
+  --lowpass-mode gaussian \
+  --iterations 20 \
+  --seed-with-bright \
+  -o output_aggressive.fits --mask-output mask_aggressive.fits
+```
+
+### Symptom → What to change
+
+- **Diffuse emission gets removed (overmasking):** increase `--sigma-threshold` by ~0.5 (e.g., `4.5 → 5.0`), disable `--seed-with-bright`, or reduce `--psf-radius`.
+- **Faint compact sources remain:** decrease `--sigma-threshold` by ~0.5 (e.g., `4.5 → 4.0`), lower `--global-sigma-threshold`, or enable `--seed-with-bright`.
+- **Ringing/edge artefacts near masks:** keep `--lowpass-mode gaussian` and lower `--cutoff` (e.g., `0.10 → 0.08`).
+- **Patchy/unstable fills:** increase `--iterations` (e.g., `12 → 20`).
+- **Large NaN regions:** avoid `--include-nans` unless necessary; if used, inspect residuals carefully.
 
 ## Algorithm Details
 
